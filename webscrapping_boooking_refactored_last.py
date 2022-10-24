@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 import math
 from bs4 import BeautifulSoup
 import requests
@@ -15,24 +16,35 @@ def prepare_driver(url):
     return driver
 
 
-def fill_forms(driver, search_location, start_date, end_date):
-    search_button = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, "e57ffa4eb5")))
+def fill_forms(driver, search_location):
     search_input = driver.find_element(By.NAME, "ss")
     search_input.send_keys(search_location)
+    tomorrow = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+    day_after_tomorrow = (datetime.now() + timedelta(days=2)).strftime('%Y-%m-%d')
 
     try:
-        show_calendar = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "//button[@data-testid='date-display-field-start']")))
+        show_calendar = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "//button[@class='d47738b911 fe211c0731 d67d113bc3']")))
     except:
-        show_calendar = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "//div[@class='sb-date-field__display']")))
+        show_calendar = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "//span[@class='sb-date-field__icon sb-date-field__icon-btn bk-svg-wrapper calendar-restructure-sb']")))
 
     show_calendar.click()
 
-    print(start_date, end_date)
-    day_in = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, f"//span[@data-date='{start_date}']")))
-    day_in.click()
+    try:
+        day_in = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, f"//span[@data-date='{tomorrow}']")))
+    except:
+        day_in = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, f"//td[@data-date='{tomorrow}']")))
 
-    day_out = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, f"//span[@data-date='{end_date}']")))
+    try:
+        day_out = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, f"//span[@data-date='{day_after_tomorrow}']")))
+    except:
+        day_out = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, f"//td[@data-date='{day_after_tomorrow}']")))
+    day_in.click()
     day_out.click()
+
+    try:
+        search_button = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, "e57ffa4eb5")))
+    except:
+        search_button = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "//button[@class='sb-searchbox__button ']")))
     search_button.click()
 
 
@@ -43,7 +55,7 @@ def get_url_results(driver):
     return url_results
 
 
-def get_competitors(url_location, min_pax, max_pax):
+def hotels_data(url_location, min_pax, max_pax, start_date, end_date):
     property_by_date_list = []
 
     for adults in range(min_pax, max_pax):
@@ -52,14 +64,11 @@ def get_competitors(url_location, min_pax, max_pax):
         pages = 1
 
         while offset/25 < pages:
-            new_sufix = f'group_adults={adults}&no_rooms=1&group_children=0&sb_travel_purpose=leisure&offset={str(offset)}'
-            new_url = url_location.split('group_adults', 1)[0] + new_sufix
-            print(new_url)
+            new_sufix = f'&checkin={start_date}&checkout={end_date}&group_adults={adults}&no_rooms=1&group_children=0&sb_travel_purpose=leisure&offset={str(offset)}'
+            new_url = url_location.split('checkin=', 1)[0] + new_sufix
 
-            headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_2) AppleWebKit/601.3.9 (KHTML, like Gecko) Version/9.0.2 Safari/601.3.9'}
-            response = requests.get(new_url, headers=headers)
-            soup = BeautifulSoup(response.content, 'html.parser')
-
+            soup = get_soup(new_url)
+            
             checkin = soup.findAll(attrs={'data-testid': 'date-display-field-start'})[0].get_text()
             checkout = soup.findAll(attrs={'data-testid': 'date-display-field-end'})[0].get_text()
             accommodations = int(re.findall(r'\d+', soup.findAll(class_='d3a14d00da')[0].get_text())[0])
@@ -98,27 +107,28 @@ def get_competitors(url_location, min_pax, max_pax):
 
     frame.insert(0, 'Checkin', checkin[checkin.find(',')+2:])
     frame.insert(1, 'Checkout', checkout[checkout.find(',')+2:])
-    frame.to_csv(f'booking_competitors_feriadao_2', index=False)
+    frame.to_csv(f'booking_competitors', index=False)
     return len(frame)
 
 
+def get_soup(new_url):
+    headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_2) AppleWebKit/601.3.9 (KHTML, like Gecko) Version/9.0.2 Safari/601.3.9'}
+    response = requests.get(new_url, headers=headers)
+    return BeautifulSoup(response.content, 'html.parser')
+
+
 if __name__ == '__main__':
-    url = 'https://www.booking.com/index.pt-br.html?aid=331424&sid=c7aeecaa57fb939d369a8f0fc5332070&keep_landing=1&sb_price_type=total&'
+    url = 'https://www.booking.com'
     search_location = 'Pipa'
     min_pax = 2
-    max_pax = 3
-    start_date = "2022-10-24"
-    end_date = "2022-10-27"
+    max_pax = 7
+    start_date = "2022-12-30"
+    end_date = "2023-01-02"
     try:
         driver = prepare_driver(url)
-        fill_forms(driver, search_location, start_date, end_date)
+        fill_forms(driver, search_location)
         url_location = get_url_results(driver)
-        # hotel_results = scrape_results(url_location)
-        # hotels_data = export_hotels_data(hotel_results)
-        get_competitors(url_location, min_pax, max_pax)
+        hotels_data(url_location, min_pax, max_pax, start_date, end_date)
     finally:
         ...
         # driver.quit()
-
-
-'https://www.booking.com/searchresults.pt-br.html?ss=Pipa&sid=c7aeecaa57fb939d369a8f0fc5332070&aid=331424&lang=pt-br&sb=1&src_elem=sb&src=searchresults&dest_id=-662045&dest_type=city&ac_position=0&ac_click_type=b&ac_langcode=en&ac_suggestion_list_length=5&search_selected=true&search_pageview_id=b3c9090d1ef201f7&ac_meta=GhBiM2M5MDkwZDFlZjIwMWY3IAAoATICZW46BFBpcGFAAEoAUAA%3D&checkin=2022-10-24&checkout=2022-10-27&group_adults=2&no_rooms=1&group_children=0&sb_travel_purpose=leisure&offset=0'
