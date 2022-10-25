@@ -11,25 +11,27 @@ from selenium.webdriver.support import expected_conditions as EC
 
 
 class Booking:
-    def __init__(self, url, search_location, min_pax, max_pax, start_date, end_date):
+    def __init__(self, url):
         self.url = url
-        self.search_location = search_location
-        self.min_pax = min_pax
-        self.max_pax = max_pax
-        self.start_date = start_date
-        self.end_date = end_date
+        self.search_location = input("Enter a destination: ")
+        self.min_pax = int(input("Enter min of adults for the search: "))
+        self.max_pax = int(input("Enter max of adults for the search: "))+1 # because is the search is not inclusive
+        self.start_date = input("Enter check-in date (in this format yyyy-mm-dd): ")
+        self.end_date = input("Enter check-out date (in this format yyyy-mm-dd):")
         self.driver = self.prepare_driver()
 
     def prepare_driver(self):
+        print('preparing webdriver')
         driver = webdriver.Chrome()
         driver.get(self.url)
         return driver
 
     def fill_forms(self):
+        print('filling the forms')
         search_input = self.driver.find_element(By.NAME, "ss")
         search_input.send_keys(self.search_location)
-        tomorrow = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
-        day_after_tomorrow = (datetime.now() + timedelta(days=2)).strftime('%Y-%m-%d')
+        tomorrow = str((datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d'))
+        day_after_tomorrow = str((datetime.now() + timedelta(days=2)).strftime('%Y-%m-%d'))
 
         try:
             show_calendar = WebDriverWait(self.driver, 2).until(EC.presence_of_element_located((By.XPATH, "//button[@class='d47738b911 fe211c0731 d67d113bc3']")))
@@ -38,14 +40,14 @@ class Booking:
         show_calendar.click()
 
         try:
-            day_in = WebDriverWait(self.driver, 2).until(EC.presence_of_element_located((By.XPATH, f"//span[@data-date='{tomorrow}']")))
+            day_in = self.driver.find_element(By.XPATH, f"//span[@data-date='{tomorrow}']")
         except:
-            day_in = WebDriverWait(self.driver, 2).until(EC.presence_of_element_located((By.XPATH, f"//td[@data-date='{tomorrow}']")))
+            day_in = self.driver.find_element(By.XPATH, f"//td[@data-date='{tomorrow}']")
 
         try:
-            day_out = WebDriverWait(self.driver, 2).until(EC.presence_of_element_located((By.XPATH, f"//span[@data-date='{day_after_tomorrow}']")))
+            day_out = self.driver.find_element(By.XPATH, f"//span[@data-date='{day_after_tomorrow}']")
         except:
-            day_out = WebDriverWait(self.driver, 2).until(EC.presence_of_element_located((By.XPATH, f"//td[@data-date='{day_after_tomorrow}']")))
+            day_out = self.driver.find_element(By.XPATH, f"//td[@data-date='{day_after_tomorrow}']")
         day_in.click()
         day_out.click()
 
@@ -56,7 +58,7 @@ class Booking:
         search_button.click()
 
     def get_url_result(self):
-        WebDriverWait(self.driver, 2).until(
+        WebDriverWait(self.driver, 10).until(
             EC.presence_of_element_located((By.LINK_TEXT, "Pesquisar resultados")))
         url_result = self.driver.current_url
         return url_result
@@ -69,15 +71,16 @@ class Booking:
     def hotels_data(self):
         property_by_date_list = []
         for adults in range(self.min_pax, self.max_pax):
+            print(f'getting data for adults quantity: {adults}')
             property_by_adults_list = []
             offset = 0
             pages = 1
 
             while offset/25 < pages:
+                print(f'page: {int(offset/25+1)}')
                 new_sufix = f'&checkin={self.start_date}&checkout={self.end_date}&group_adults={adults}&no_rooms=1&group_children=0&sb_travel_purpose=leisure&offset={str(offset)}'
 
                 new_url = self.get_url_result().split('checkin=', 1)[0] + new_sufix
-
                 soup = self.get_soup(new_url)
 
                 checkin = soup.findAll(attrs={'data-testid': 'date-display-field-start'})[0].get_text()
@@ -104,8 +107,12 @@ class Booking:
                             class_='df597226dd')[0].get_text()
                     except Exception:
                         property_by_page['type'] = ''
-                    property_by_page['dates_and_pax'] = item.findAll(
-                        attrs={'data-testid': 'price-for-x-nights'})[0].get_text()
+
+                    property_by_page['days'] = (item.findAll(
+                        attrs={'data-testid': 'price-for-x-nights'})[0].get_text()).split(', ')[0]
+                    property_by_page['adults'] = item.findAll(
+                        attrs={'data-testid': 'price-for-x-nights'})[0].get_text().split(', ')[1]
+
                     property_by_page['price'] = item.findAll(
                         attrs={'data-testid': 'price-and-discounted-price'}
                         )[0].get_text()
@@ -113,24 +120,23 @@ class Booking:
                     property_by_adults_list.append(property_by_page)
                 offset += 25
             property_by_date_list += property_by_adults_list
-            frame = pd.DataFrame(property_by_date_list)
+            data_table = pd.DataFrame(property_by_date_list)
 
-        frame.insert(0, 'Checkin', checkin[checkin.find(',')+2:])
-        frame.insert(1, 'Checkout', checkout[checkout.find(',')+2:])
-        frame.to_csv(f'booking_competitors', index=False)
-        return len(frame)
+        data_table.insert(0, 'Checkin', checkin[checkin.find(',')+2:])
+        data_table.insert(1, 'Checkout', checkout[checkout.find(',')+2:])
+        data_table.to_csv(f'booking_competitors', index=False)
+        return len(data_table)
 
     def main(self):
-        self.fill_forms()
-        self.hotels_data()
+        try:
+            self.fill_forms()
+            self.hotels_data()
+            self.driver.quit()
+        except:
+            self.driver.quit()
 
 if __name__ == '__main__':
     booking = Booking(
         url='https://www.booking.com',
-        search_location='Pipa',
-        min_pax=2,
-        max_pax=7,
-        start_date="2022-12-30",
-        end_date="2023-01-02",
     )
     booking.main()
