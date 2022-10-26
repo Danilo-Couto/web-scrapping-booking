@@ -8,6 +8,10 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+import os
+import sys
+import subprocess
+from time import sleep
 
 
 class Booking:
@@ -51,7 +55,6 @@ class Booking:
             day_out = self.driver.find_element(By.XPATH, f"//td[@data-date='{day_after_tomorrow}']")
         day_in.click()
         day_out.click()
-
         try:
             search_button = WebDriverWait(self.driver, 2).until(EC.presence_of_element_located((By.CLASS_NAME, "e57ffa4eb5")))
         except Exception:
@@ -59,10 +62,13 @@ class Booking:
         search_button.click()
 
     def get_url_result(self):
-        WebDriverWait(self.driver, 10).until(
-            EC.presence_of_element_located((By.LINK_TEXT, "Pesquisar resultados")))
-        url_result = self.driver.current_url
-        return url_result
+        try:
+            WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.LINK_TEXT, "Pesquisar resultados")))
+            url_result = self.driver.current_url
+            return url_result
+        except:
+            self.driver.quit()
 
     def get_soup(self, new_url):
         headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_2) AppleWebKit/601.3.9 (KHTML, like Gecko) Version/9.0.2 Safari/601.3.9'}
@@ -71,12 +77,13 @@ class Booking:
 
     def hotels_data(self):
         property_by_date_list = []
+        url = self.get_url_result().split('checkin=', 1)[0]
+
         for adults in range(self.min_pax, self.max_pax):
             print(f'getting data for adults quantity: {adults}')
             property_by_adults_list = []
             offset = 0
             pages = 1
-            url = self.get_url_result().split('checkin=', 1)[0]
 
             while offset/25 < pages:
                 print(f'page: {int(offset/25+1)}')
@@ -108,7 +115,6 @@ class Booking:
                             class_='df597226dd')[0].get_text()
                     except Exception:
                         property_by_page['type'] = ''
-
                     try:
                         property_by_page['days'] = (item.findAll(
                             attrs={'data-testid': 'price-for-x-nights'})[0].get_text()).split(', ')[0]
@@ -119,7 +125,6 @@ class Booking:
                             attrs={'data-testid': 'price-for-x-nights'})[0].get_text().split(', ')[1]
                     except Exception:
                         property_by_page['adults'] = ''
-
                     try:
                         property_by_page['price'] = item.findAll(attrs={'data-testid': 'price-and-discounted-price'})[0].get_text()
                     except Exception:
@@ -133,7 +138,6 @@ class Booking:
         data_table.insert(0, 'CheckIn', checkin[checkin.find(',')+2:])
         data_table.insert(1, 'CheckOut', checkout[checkout.find(',')+2:])
         data_table.to_csv(f'scrap_booking_{self.table_name}', index=False)
-        return len(data_table)
 
     def main(self):
         self.fill_forms()
@@ -150,4 +154,10 @@ if __name__ == '__main__':
         end_date="2022-10-30",
         table_name="fds_28_out"
     )
-    booking.main()
+    try:
+        booking.main()
+    except:
+        print("Restarting the program")
+        .sleep(5)
+        subprocess.call([sys.executable, os.path.realpath(__file__)] + sys.argv[1:])  #restart the program
+        booking.main()
