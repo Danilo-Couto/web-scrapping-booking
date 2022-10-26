@@ -11,7 +11,6 @@ from selenium.webdriver.support import expected_conditions as EC
 import os
 import sys
 import subprocess
-from time import sleep
 
 
 class Booking:
@@ -158,6 +157,5 @@ if __name__ == '__main__':
         booking.main()
     except:
         print("Restarting the program")
-        .sleep(5)
         subprocess.call([sys.executable, os.path.realpath(__file__)] + sys.argv[1:])  #restart the program
         booking.main()
