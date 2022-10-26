@@ -76,12 +76,12 @@ class Booking:
             property_by_adults_list = []
             offset = 0
             pages = 1
+            url = self.get_url_result().split('checkin=', 1)[0]
 
             while offset/25 < pages:
                 print(f'page: {int(offset/25+1)}')
                 new_sufix = f'&checkin={self.start_date}&checkout={self.end_date}&group_adults={adults}&no_rooms=1&group_children=0&sb_travel_purpose=leisure&offset={str(offset)}'
-
-                new_url = self.get_url_result().split('checkin=', 1)[0] + new_sufix
+                new_url = url + new_sufix
                 soup = self.get_soup(new_url)
 
                 checkin = soup.findAll(attrs={'data-testid': 'date-display-field-start'})[0].get_text()
@@ -109,14 +109,21 @@ class Booking:
                     except Exception:
                         property_by_page['type'] = ''
 
-                    property_by_page['days'] = (item.findAll(
-                        attrs={'data-testid': 'price-for-x-nights'})[0].get_text()).split(', ')[0]
-                    property_by_page['adults'] = item.findAll(
-                        attrs={'data-testid': 'price-for-x-nights'})[0].get_text().split(', ')[1]
+                    try:
+                        property_by_page['days'] = (item.findAll(
+                            attrs={'data-testid': 'price-for-x-nights'})[0].get_text()).split(', ')[0]
+                    except Exception:
+                        property_by_page['days'] = ''
+                    try:
+                        property_by_page['adults'] = item.findAll(
+                            attrs={'data-testid': 'price-for-x-nights'})[0].get_text().split(', ')[1]
+                    except Exception:
+                        property_by_page['adults'] = ''
 
-                    property_by_page['price'] = item.findAll(
-                        attrs={'data-testid': 'price-and-discounted-price'}
-                        )[0].get_text()
+                    try:
+                        property_by_page['price'] = item.findAll(attrs={'data-testid': 'price-and-discounted-price'})[0].get_text()
+                    except Exception:
+                        property_by_page['price'] = ''
 
                     property_by_adults_list.append(property_by_page)
                 offset += 25
@@ -125,25 +132,22 @@ class Booking:
 
         data_table.insert(0, 'CheckIn', checkin[checkin.find(',')+2:])
         data_table.insert(1, 'CheckOut', checkout[checkout.find(',')+2:])
-        data_table.to_csv(f'scrap_booking_{self.table.name}', index=False)
+        data_table.to_csv(f'scrap_booking_{self.table_name}', index=False)
         return len(data_table)
 
     def main(self):
-        try:
-            self.fill_forms()
-            self.hotels_data()
-            self.driver.quit()
-        except Exception():
-            print('some error ocurred')
-            self.driver.quit()
+        self.fill_forms()
+        self.hotels_data()
+        self.driver.quit()
+
 
 if __name__ == '__main__':
     booking = Booking(
         search_location='Pipa',
         min_pax=2,
         max_pax=7,
-        start_date="2022-12-30",
-        end_date="2023-01-02",
-        table_name="reveillon_2023"
+        start_date="2022-10-28",
+        end_date="2022-10-30",
+        table_name="fds_28_out"
     )
     booking.main()
