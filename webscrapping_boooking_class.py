@@ -55,12 +55,13 @@ class Booking:
         day_in.click()
         day_out.click()
         try:
-            search_button = WebDriverWait(self.driver, 2).until(EC.presence_of_element_located((By.CLASS_NAME, "e57ffa4eb5")))
+            search_button = WebDriverWait(self.driver, 2).until(EC.presence_of_element_located((By.XPATH, "//*[@id='frm']/div[1]/div[4]/div[2]/button")))
         except Exception:
-            search_button = WebDriverWait(self.driver, 2).until(EC.presence_of_element_located((By.XPATH, "//button[@data-et-click='      customGoal:cCHObTRVDEZRdPQBcGCfTKYCccaT:1 goal:www_index_search_button_click   ']")))
+            search_button = WebDriverWait(self.driver, 2).until(EC.presence_of_element_located((By.XPATH, '//*[@id="indexsearch"]/div[2]/div/div/div/form/div[1]/div[4]/button/span')))
         search_button.click()
 
     def get_url_result(self):
+        print('getting url')
         try:
             WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.LINK_TEXT, "Pesquisar resultados")))
@@ -70,11 +71,13 @@ class Booking:
             self.driver.quit()
 
     def get_soup(self, new_url):
+        print('preparing the soup')
         headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_2) AppleWebKit/601.3.9 (KHTML, like Gecko) Version/9.0.2 Safari/601.3.9'}
         response = requests.get(new_url, headers=headers)
         return BeautifulSoup(response.content, 'html.parser')
 
     def hotels_data(self):
+        print('getting data')
         property_by_date_list = []
         url = self.get_url_result().split('checkin=', 1)[0]
 
@@ -90,8 +93,6 @@ class Booking:
                 new_url = url + new_sufix
                 soup = self.get_soup(new_url)
 
-                checkin = soup.findAll(attrs={'data-testid': 'date-display-field-start'})[0].get_text()
-                checkout = soup.findAll(attrs={'data-testid': 'date-display-field-end'})[0].get_text()
                 accommodations = int(re.findall(r'\d+', soup.findAll(class_='d3a14d00da')[0].get_text())[0])
                 pages = math.ceil(accommodations/25)
 
@@ -134,8 +135,8 @@ class Booking:
             property_by_date_list += property_by_adults_list
             data_table = pd.DataFrame(property_by_date_list)
 
-        data_table.insert(0, 'CheckIn', checkin[checkin.find(',')+2:])
-        data_table.insert(1, 'CheckOut', checkout[checkout.find(',')+2:])
+        data_table.insert(0, 'CheckIn', self.start_date)
+        data_table.insert(1, 'CheckOut', self.end_date)
         data_table.to_csv(f'scrap_booking_{self.table_name}', index=False)
 
     def main(self):
@@ -149,9 +150,9 @@ if __name__ == '__main__':
         search_location='Pipa',
         min_pax=2,
         max_pax=7,
-        start_date="2022-10-28",
-        end_date="2022-10-30",
-        table_name="fds_28_out"
+        start_date="2022-12-29",
+        end_date="2023-01-03",
+        table_name="reveillon"
     )
     try:
         booking.main()
