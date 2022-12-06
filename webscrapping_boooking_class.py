@@ -21,6 +21,14 @@ class Booking:
         self.max_pax = max_pax
         self.start_date = start_date
         self.end_date = end_date
+
+        self.checkin_year = self.start_date.split('-')[0]
+        self.checkin_month = self.start_date.split('-')[1]
+        self.checkin_monthday = self.start_date.split('-')[2]
+        self.checkout_year = self.end_date.split('-')[0]
+        self.checkout_month = self.end_date.split('-')[1]
+        self.checkout_monthday = self.end_date.split('-')[2]
+
         self.table_name = table_name
         self.driver = self.prepare_driver()
 
@@ -79,7 +87,7 @@ class Booking:
     def hotels_data(self):
         print('getting data')
         property_by_date_list = []
-        url = self.get_url_result().split('checkin=', 1)[0]
+        url = self.get_url_result().split('checkin_year=', 1)[0]
 
         for adults in range(self.min_pax, self.max_pax):
             print(f'getting data for adults quantity: {adults}')
@@ -89,7 +97,9 @@ class Booking:
 
             while offset/25 < pages:
                 print(f'page: {int(offset/25+1)}')
-                new_sufix = f'&checkin={self.start_date}&checkout={self.end_date}&group_adults={adults}&no_rooms=1&group_children=0&sb_travel_purpose=leisure&offset={str(offset)}'
+
+                new_sufix = f'checkin_year={self.checkin_year}&checkin_month={self.checkin_month}&checkin_monthday={self.checkin_monthday}&checkout_year={self.checkout_year}&checkout_month={self.checkout_month}&checkout_monthday={self.checkout_monthday}&efdco=1&group_adults={adults}&group_children=0&no_rooms=1&group_children=0&sb_travel_purpose=leisure&offset={str(offset)}'
+
                 new_url = url + new_sufix
                 soup = self.get_soup(new_url)
 
@@ -138,6 +148,7 @@ class Booking:
         data_table.insert(0, 'CheckIn', self.start_date)
         data_table.insert(1, 'CheckOut', self.end_date)
         data_table.to_csv(f'scrap_booking_{self.table_name}', index=False)
+        print('scrap done')
 
     def main(self):
         self.fill_forms()
@@ -150,9 +161,9 @@ if __name__ == '__main__':
         search_location='Pipa',
         min_pax=2,
         max_pax=7,
-        start_date="2022-12-29",
-        end_date="2023-01-03",
-        table_name="reveillon"
+        start_date="2023-01-16",
+        end_date="2023-01-31",
+        table_name="2q-janeiro"
     )
     try:
         booking.main()
